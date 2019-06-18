@@ -2,6 +2,10 @@
 
 #define VERSION "1.4"
 #define VERSION_CONFIG 140
+#define FORCE_DEFAULT_PROFILE 1
+
+// #define USE_CLI
+// #define USE_BT
 
 #define MODE_START       0
 #define MODE_MENU        1
@@ -26,9 +30,10 @@
 #define LORA_NAME_LENGTH 6
 
 #define LORA_CYCLE_SCAN 4000
-#define LORA_PEER_TIMEOUT 6000
+#define LORA_PEER_TIMEOUT 6000 // 6s
+#define LORA_PEER_TIMEOUT_LOST 30000  // 30s
 #define LORA_DRIFT_THRESHOLD 5
-#define LORA_DRIFT_CORRECTION 5
+#define LORA_DRIFT_CORRECTION 20
 
 // --------- IO AND DISPLAY
 
