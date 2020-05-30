@@ -1,11 +1,49 @@
 // -------- GENERAL
 
-#define VERSION "1.4"
-#define VERSION_CONFIG 140
+#define VERSION "1.5"
+#define VERSION_CONFIG 150
 #define FORCE_DEFAULT_PROFILE 1
+#define CFG_PROFILE_DEFAULT_ID 1
+#define CFG_PROFILE_DEFAULT_NAME "Default"
 
-// #define USE_CLI
-// #define USE_BT
+// -------- LORA DEFAULTS
+
+#define LORA_FREQUENCY 433E6 // 433E6, 868E6, 915E6
+
+#define LORA_BANDWIDTH 250000
+#define LORA_CODING_RATE 5
+#define LORA_SPREADING_FACTOR 9
+#define LORA_POWER 20
+
+#define LORA_NODES_MAX 4
+#define LORA_SLOT_SPACING 150
+#define LORA_TIMING_DELAY -70
+#define LORA_MSP_AFTER_TX_DELAY 90
+
+#define LORA_NAME_LENGTH 6
+#define LORA_CYCLE_SCAN 4000
+#define LORA_PEER_TIMEOUT 6000 // 6s
+#define LORA_PEER_TIMEOUT_LOST 30000  // 30s
+#define LORA_DRIFT_THRESHOLD 6 // Min for action
+#define LORA_DRIFT_CORRECTION 16 // Max to correct
+
+// --------- IO AND DISPLAY
+
+#define DISPLAY_CYCLE 300
+#define IO_LEDBLINK_DURATION 150
+#define IO_LED_PIN 2
+
+#define SERIAL_PIN_TX 23
+#define SERIAL_PIN_RX 17
+
+#define SCK 5 // GPIO5 - SX1278's SCK
+#define MISO 19 // GPIO19 - SX1278's MISO
+#define MOSI 27 // GPIO27 - SX1278's MOSI
+#define SS 18 // GPIO18 - SX1278's CS
+#define RST 14 // GPIO14 - SX1278's RESET
+#define DI0 26 // GPIO26 - SX1278's IRQ (interrupt request)
+
+// -------- PHASES
 
 #define MODE_START       0
 #define MODE_MENU        1
@@ -21,34 +59,6 @@
 #define HOST_NONE 0
 #define HOST_INAV 1
 #define HOST_BTFL 2
-
-#define CFG_PROFILE_DEFAULT_ID 1
-
-// -------- LORA
-
-#define LORA_NODES_MAX 8
-#define LORA_NAME_LENGTH 6
-
-#define LORA_CYCLE_SCAN 4000
-#define LORA_PEER_TIMEOUT 6000 // 6s
-#define LORA_PEER_TIMEOUT_LOST 30000  // 30s
-#define LORA_DRIFT_THRESHOLD 5
-#define LORA_DRIFT_CORRECTION 20
-
-// --------- IO AND DISPLAY
-
-#define DISPLAY_CYCLE 250
-#define IO_LEDBLINK_DURATION 160
-
-#define SERIAL_PIN_TX 23
-#define SERIAL_PIN_RX 17
-
-#define SCK 5 // GPIO5 - SX1278's SCK
-#define MISO 19 // GPIO19 - SX1278's MISO
-#define MOSI 27 // GPIO27 - SX1278's MOSI
-#define SS 18 // GPIO18 - SX1278's CS
-#define RST 14 // GPIO14 - SX1278's RESET
-#define DI0 26 // GPIO26 - SX1278's IRQ (interrupt request)
 
 // -------- STRUCTURE
 
@@ -124,7 +134,6 @@ struct air_type3_t { // 80 bits
 
 struct config_t {
 
-
     // General
 
     uint16_t version;
@@ -149,7 +158,6 @@ struct config_t {
     // IO & Display
 
     bool display_enable;
-    uint8_t io_pin_led = 2;
 
 };
 

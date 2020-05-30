@@ -2,15 +2,14 @@
 #include <esp_system.h>
 #include <lib/MSP.h>
 #include <lib/LoRa.h>
-
 #include <SSD1306.h>
 #include <EEPROM.h>
 #include <main.h>
 #include <pixel.h>
 #include <math.h>
 #include <cmath>
-#include <BluetoothSerial.h>
-#include <lib/cli.h>
+
+#define M_PI 3.14159265358979323846
 
 // -------- VARS
 
@@ -18,15 +17,6 @@ config_t cfg;
 system_t sys;
 stats_t stats;
 MSP msp;
-
-#ifdef USE_CLI
-CLI * cli = new CLI;
-CLI * cliBT = new CLI;
-#endif
-
-#ifdef USE_BT
-BluetoothSerial SerialBT;
-#endif
 
 msp_radar_pos_t radarPos;
 
@@ -71,29 +61,24 @@ void config_init() {
     if (cfg.version != VERSION_CONFIG || FORCE_DEFAULT_PROFILE) { // write default config
         cfg.version = VERSION_CONFIG;
         cfg.profile_id = CFG_PROFILE_DEFAULT_ID;
-        strcpy(cfg.profile_name, "Default");
+        strcpy(cfg.profile_name, CFG_PROFILE_DEFAULT_NAME);
 
-        cfg.lora_frequency = 433E6; // 433E6, 868E6, 915E6
-        cfg.lora_bandwidth = 250000;
-        cfg.lora_coding_rate = 5;
-        cfg.lora_spreading_factor = 9;
-        cfg.lora_power = 20;
+        cfg.lora_frequency = LORA_FREQUENCY;
+        cfg.lora_bandwidth = LORA_BANDWIDTH;
+        cfg.lora_coding_rate = LORA_CODING_RATE;
+        cfg.lora_spreading_factor = LORA_SPREADING_FACTOR;
+        cfg.lora_power = LORA_POWER;
 
-        cfg.lora_nodes_max = 4;
-        cfg.lora_slot_spacing = 125;
-        cfg.lora_timing_delay = -70;
-        cfg.msp_after_tx_delay = 85;
+        cfg.lora_nodes_max = LORA_NODES_MAX;
+        cfg.lora_slot_spacing = LORA_SLOT_SPACING;
+        cfg.lora_timing_delay = LORA_TIMING_DELAY;
+        cfg.msp_after_tx_delay = LORA_MSP_AFTER_TX_DELAY;
 
         cfg.display_enable = 1;
-        cfg.io_pin_led = 2;
 
         config_save();
     }
-    else {
-        Serial.println("Configuration file found!");
-    }
 }
-
 
 // -------- SYSTEM
 
@@ -163,16 +148,6 @@ double rad2deg(double rad) {
   return (rad * 180 / M_PI);
 }
 
-/**
- * Returns the distance between two points on the Earth.
- * Direct translation from http://en.wikipedia.org/wiki/Haversine_formula
- * @param lat1d Latitude of the first point in degrees
- * @param lon1d Longitude of the first point in degrees
- * @param lat2d Latitude of the second point in degrees
- * @param lon2d Longitude of the second point in degrees
- * @return The distance between the two points in meters
- */
-
 double gpsDistanceBetween(double lat1d, double lon1d, double lat2d, double lon2d) {
   double lat1r, lon1r, lat2r, lon2r, u, v;
   lat1r = deg2rad(lat1d);
@@ -184,33 +159,6 @@ double gpsDistanceBetween(double lat1d, double lon1d, double lat2d, double lon2d
   return 2.0 * 6371000 * asin(sqrt(u * u + cos(lat1r) * cos(lat2r) * v * v));
 }
 
-/*
-double gpsDistanceBetween(double lat1, double long1, double lat2, double long2)
-{
-  // returns distance in meters between two positions, both specified
-  // as signed decimal-degrees latitude and longitude. Uses great-circle
-  // distance computation for hypothetical sphere of radius 6372795 meters.
-  // Because Earth is no exact sphere, rounding errors may be up to 0.5%.
-  // Courtesy of Maarten Lamers
-  double delta = radians(long1-long2);
-  double sdlong = sin(delta);
-  double cdlong = cos(delta);
-  lat1 = radians(lat1);
-  lat2 = radians(lat2);
-  double slat1 = sin(lat1);
-  double clat1 = cos(lat1);
-  double slat2 = sin(lat2);
-  double clat2 = cos(lat2);
-  delta = (clat1 * slat2) - (slat1 * clat2 * cdlong);
-  delta = sq(delta);
-  delta += sq(clat2 * sdlong);
-  delta = sqrt(delta);
-  double denom = (slat1 * slat2) + (clat1 * clat2 * cdlong);
-  delta = atan2(delta, denom);
-  return delta * 6372795;
-}
-
-*/
 
 double gpsCourseTo(double lat1, double long1, double lat2, double long2)
 {
@@ -233,7 +181,6 @@ double gpsCourseTo(double lat1, double long1, double lat2, double long2)
 }
 
 // -------- LoRa
-
 
 void lora_send() {
 
@@ -266,7 +213,6 @@ void lora_send() {
             }
     }
     else {
-
         if (sys.lora_tick % 2 == 0) {
             air_0.id = curr.id;
             air_0.type = 0;
@@ -300,7 +246,7 @@ void lora_receive(int packetSize) {
     if (packetSize == 0) return;
 
     sys.lora_last_rx = millis();
-    sys.lora_last_rx -= (stats.last_tx_duration > 0 ) ? stats.last_tx_duration : 0; // RX time should be the same as TX time
+    sys.lora_last_rx -= (stats.last_tx_duration > 0 ) ? stats.last_tx_duration : 0; // RX time is the same as TX time
 
     sys.last_rssi = LoRa.packetRssi();
     sys.ppsc++;
@@ -373,7 +319,7 @@ void lora_receive(int packetSize) {
 
 void lora_init() {
 
-    SPI.begin(5, 19, 27, 18);
+    SPI.begin(SCK, MISO, MOSI, SS);
     LoRa.setPins(SS, RST, DI0);
 
     if (!LoRa.begin(cfg.lora_frequency)) {
@@ -658,9 +604,9 @@ void display_logo() {
 // -------- MSP and FC
 
 void msp_get_state() {
-    uint32_t planeModes;
-    msp.getActiveModes(&planeModes);
-    curr.state = bitRead(planeModes, 0);
+    uint32_t modes;
+    msp.getActiveModes(&modes);
+    curr.state = bitRead(modes, 0);
 }
 
 void msp_get_name() {
@@ -755,17 +701,6 @@ void IRAM_ATTR handleInterrupt() {
 
 void setup() {
 
-    #ifdef USE_CLI
-    Serial.begin(115200);
-    cli->begin(Serial);
-    #endif
-
-    #ifdef USE_BT
-    SerialBT.begin("INAV-Radar");
-    cliBT->begin(SerialBT);
-    //SerialBT.end();
-    #endif
-
     sys.phase = MODE_START;
 
     config_init();
@@ -773,7 +708,7 @@ void setup() {
     sys.lora_cycle = cfg.lora_nodes_max * cfg.lora_slot_spacing;
     sys.cycle_stats = sys.lora_cycle * 2;
 
-    pinMode(cfg.io_pin_led, OUTPUT);
+    pinMode(IO_LED_PIN, OUTPUT);
     sys.io_led_blink = 0;
 
     if (cfg.display_enable) {
@@ -791,14 +726,12 @@ void setup() {
     sys.io_button_pressed = 0;
     attachInterrupt(digitalPinToInterrupt(interruptPin), handleInterrupt, RISING);
 
-
 /*
     sys.display_updated = 0;
     sys.menu_line = CFG_PROFILE_DEFAULT;
     sys.menu_line = 1; // ---------------------
     sys.menu_begin = millis();
     sys.phase = MODE_MENU;
-
     */
 
     lora_init();
@@ -822,14 +755,6 @@ void setup() {
 // ----------------------------------------------------------------------------- MAIN LOOP
 
 void loop() {
-
-    #ifdef USE_CLI
-    cli->process();
-    #endif
-
-    #ifdef USE_BT
-    cliBT->process();
-    #endif
 
     sys.now = millis();
 
@@ -907,7 +832,7 @@ void loop() {
 
             sys.num_peers = count_peers();
 
-            if (sys.num_peers >= cfg.lora_nodes_max) {
+            if (sys.num_peers >= cfg.lora_nodes_max) { // Too many nodes already, go silent mode
                 sys.lora_no_tx = 1;
             }
             else {
@@ -937,7 +862,7 @@ void loop() {
 
     if (sys.phase == MODE_LORA_SYNC) {
 
-        if (sys.num_peers == 0 || sys.lora_no_tx) { // Alone or no_tx mode, start at will
+        if (sys.num_peers == 0 || sys.lora_no_tx) { // Alone or no_tx mode, no need to sync
             sys.lora_next_tx = millis() + sys.lora_cycle;
             }
         else { // Not alone, sync by slot
@@ -952,7 +877,7 @@ void loop() {
         stats.packets_total = 0;
         stats.packets_received = 0;
         stats.percent_received = 0;
-        digitalWrite(cfg.io_pin_led, LOW);
+        digitalWrite(IO_LED_PIN, LOW);
 
         sys.phase = MODE_LORA_RX;
         }
@@ -1086,18 +1011,16 @@ void loop() {
                 peers[i].lq_tick = 0;
             }
 
-            if (peers[i].id > 0 && ((sys.now - peers[i].updated) > LORA_PEER_TIMEOUT)) {
+            if (peers[i].id > 0 && ((sys.now - peers[i].updated) > LORA_PEER_TIMEOUT)) { // Lost for a short time
                 peers[i].lost = 1;
 
-                if ((sys.now - peers[i].updated) > LORA_PEER_TIMEOUT_LOST) {
+                if ((sys.now - peers[i].updated) > LORA_PEER_TIMEOUT_LOST) { // Lost for a long time
                     peers[i].state = 2;
                 }
             }
         }
 
         sys.num_peers_active = count_peers(1);
-
-//        sys.lora_slow_mode = (sys.num_peers_active == 0) ? 1 : 0;
 
         stats.packets_total += sys.num_peers_active * sys.cycle_stats / sys.lora_cycle;
         stats.packets_received += sys.pps;
@@ -1135,10 +1058,10 @@ void loop() {
         sys.io_led_changestate += IO_LEDBLINK_DURATION;
 
         if (sys.io_led_count % 2 == 0) {
-            digitalWrite(cfg.io_pin_led, LOW);
+            digitalWrite(IO_LED_PIN, LOW);
         }
         else {
-            digitalWrite(cfg.io_pin_led, HIGH);
+            digitalWrite(IO_LED_PIN, HIGH);
         }
 
         if (sys.io_led_count >= sys.num_peers_active * 2) {
